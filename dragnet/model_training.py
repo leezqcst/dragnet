@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import io
 import re
 import json
 import numpy as np
@@ -93,8 +94,18 @@ class DragnetModelTrainer(object):
                 # document is too short -- has < blocks.
                 # skip it
                 continue
-            features = np.vstack((features, training_features))
             this_labels, this_weight, this_tokens = self._get_labels(content, comments)
+
+            if (training_features.shape[0] != len(this_weight) or
+                    len(this_labels) != len(this_weight)):
+                print('\nskipping file because of array shape mismatch...')
+                print('len(blocks) =', len(blocks))
+                print('len(this_labels) =', len(this_labels))
+                print('len(this_weight) =', len(this_weight))
+                # raise ValueError("Number of features, labels and weights do not match!")
+                continue
+
+            features = np.vstack((features, training_features))
             weights = np.hstack((weights, this_weight))
             labels = np.hstack((labels, this_labels))
             if return_blocks:
@@ -413,7 +424,13 @@ def train_models(datadir, output_dir, features_to_use, model,
 
     # pickle the final model!
     # use the one with threshold = 0.5
-    pickle.dump(ContentExtractionModel(Blkr, feature_instances, model, threshold=0.5),
-                open(prefix + '_content_model.pickle', 'w'))
+    model = ContentExtractionModel(Blkr, feature_instances, model, threshold=0.5)
+    if content_or_comments == 'content':
+        model_fname = prefix + '_content_model.pickle'
+    else:
+        model_fname = prefix + '_content_comments_model.pickle'
+    with io.open(model_fname, mode='wb') as f:
+        pickle.dump(model, f)
 
     print("done!")
+    return model

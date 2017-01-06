@@ -4,6 +4,15 @@ import numpy as np
 from .blocks import Blockifier
 
 
+class PredictorABC(object):
+
+    def fit(self, blocks, labels):
+        raise NotImplementedError
+
+    def predict(self, features_vec):
+        raise NotImplementedError
+
+
 class IdentityPredictor(object):
     """Mock out the machine learning model with an identity model."""
     @staticmethod
@@ -28,6 +37,40 @@ class BaselinePredictor(object):
 
 def nofeatures(blocks, *args, **kwargs):
     return np.zeros((len(blocks), 1))
+
+
+class ExtractorABC(object):
+    """
+    Abstract base class implementing the ``Extractor`` API
+
+    Args:
+        blockifier: object implementing the ``Blockifier`` API
+        features: list of objects implementing the ``Feature`` API
+        predictor: object implementing the ``Predictor`` API
+    """
+
+    def __init__(self, blockifier, features, predictor):
+        self.blockifier = blockifier
+        self.features = features
+        self.predictor = predictor
+
+    def __call__(self, html, encoding=None):
+        """
+        Args:
+            html (str)
+            encoding (str)
+
+        Returns
+            str
+        """
+        raise NotImplementedError
+
+    def make_features_from_blocks(self, blocks, min_num_blocks=3):
+        if len(blocks) < min_num_blocks:
+            return None
+        # compute the features
+        return np.column_stack(
+            tuple(feature.transform(blocks) for feature in self.features))
 
 
 class ContentExtractionModel(object):
@@ -207,3 +250,27 @@ class SklearnWrapper(object):
         return self._skmodel.predict_proba(X)[:, self._positive_idx]
 
 baseline_model = ContentExtractionModel(Blockifier, [nofeatures], BaselinePredictor)
+
+
+# HACK HACK
+
+import os
+import pkgutil
+from gzip import GzipFile
+
+from .compat import pickle, bytes_io
+
+
+class content_extractor(object):
+
+    def __init__(self, fname=None):
+        if fname is None:
+            fname = 'kohlschuetter_weninger_readability_content_model.pickle.gz'
+        with GzipFile(
+                fileobj=bytes_io(pkgutil.get_data('dragnet', os.path.join('pickled_models', fname))),
+                mode='rb') as f:
+            self._extractor = pickle.load(f)
+
+    def analyze(self, s, blocks=False, encoding=None, parse_callback=None):
+        return self._extractor.analyze(
+            s, blocks=blocks, encoding=encoding, parse_callback=parse_callback)

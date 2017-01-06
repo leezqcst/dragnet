@@ -15,9 +15,50 @@ where ``computed_features`` is a call with ``train=True``, and ``ret`` is the
 returned value from ``features.init_params``.
 """
 import re
+
+from sklearn.externals import joblib
+from sklearn.preprocessing import StandardScaler
 import numpy as np
 
 from .compat import range_, string_
+
+
+class FeatureABC(object):
+    """
+    """
+
+    def __init__(self):
+        return
+
+    def fit(self, blocks):
+        raise NotImplementedError
+
+    def transform(self, blocks):
+        raise NotImplementedError
+
+
+class StandardizedFeature(FeatureABC):
+
+    def __init__(self, feature):
+        self.feature = feature
+        self.scaler = None
+
+    @classmethod
+    def load(cls, filepath):
+        return joblib.load(filepath)
+
+    def save(self, filepath):
+        joblib.dump(self, filepath)
+
+    def fit(self, blocks, with_mean=True, with_std=True):
+        feature_array = self.feature.transform(blocks)
+        self.scaler = StandardScaler(
+            copy=True, with_mean=with_mean, with_std=with_std).fit(feature_array)
+
+    def transform(self, blocks):
+        if self.scaler is None:
+            raise Exception
+        return self.scaler.transform(self.feature.transform(blocks))
 
 
 def normalize_features(features, mean_std):

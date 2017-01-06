@@ -6,6 +6,7 @@ from dragnet.util import evaluation_metrics
 from dragnet.weninger import weninger_features_kmeans
 from dragnet.readability import readability_features
 from dragnet.models import content_extractor, content_comments_extractor
+# from dragnet.content_extraction_model import content_extractor
 
 
 class AllFeatures(object):
